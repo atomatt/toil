@@ -1,0 +1,10 @@
+Persistent 'since'.
+
+Error handling:
+    * return failure to client ... but what error and when/how
+
+Database rotation.
+
+Handle timeouts:
+    worker should probably never timeout.
+    client's fg timeout should be configurable
