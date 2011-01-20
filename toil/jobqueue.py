@@ -55,11 +55,17 @@ class Worker(object):
     def register(self, name, callable):
         self._registrations[name] = callable
 
-    def run(self):
+    def run(self, timeout=None):
+        # Use a 15sec heartbeat to keep the connection alive unless there's a
+        # timeout (a heartbeat disables a timeout).
+        heartbeat = 15000 if timeout is None else None
         for change in self._db.changes(feed='continuous',
                                        filter='jobqueue/task',
-                                       include_docs=True,
-                                       name=','.join(self._registrations)):
+                                       name=','.join(self._registrations),
+                                       include_docs=True, timeout=timeout,
+                                       heartbeat=heartbeat):
+            if 'last_seq' in change:
+                break
             task = change['doc']
             log.debug('claim?: %s', task['_id'])
             task['claimed'] = datetime.utcnow().isoformat()
