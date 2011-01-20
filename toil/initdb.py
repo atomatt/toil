@@ -6,6 +6,25 @@ import sys
 import couchdb
 
 
+TASK_FILTER_JS = '''
+function(doc, req) {
+    names={};
+    for each (name in req.query.name.split(',')) {
+        names[name] = true;
+    }
+    id = doc._id.split('~');
+    return (id[0] == 'task') && names[id[1]] && !doc._deleted && !doc.claimed && !doc.paused;
+}
+'''
+
+
+RESPONSE_FILTER_JS = '''
+function(doc, req) {
+    return doc._id == req.query.docid && !doc._deleted;
+}
+'''
+
+
 TASK_FILTER = '''
 fun({Doc}, {Req}) ->
     {Query} = couch_util:get_value(<<"query">>, Req),
