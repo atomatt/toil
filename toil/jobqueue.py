@@ -14,8 +14,8 @@ MAX_ERRORS = 5
 
 class Client(object):
 
-    def __init__(self, dburl):
-        self._db = couchdb.Database(dburl)
+    def __init__(self, db):
+        self._db = make_db(db)
         self.__since = 0
 
     def close(self):
@@ -45,9 +45,10 @@ def _task_docid(name):
 
 class Worker(object):
 
-    def __init__(self, dburl):
-        self._db = couchdb.Database(dburl)
+    def __init__(self, db):
+        self._db = make_db(db)
         self._registrations = {}
+        self.client = Client(self._db)
 
     def close(self):
         pass
@@ -97,3 +98,9 @@ class Worker(object):
                         log.debug('reply: %s, %s', reply_doc['_id'], r[0][0])
                     else:
                         self._db.update([task])
+
+
+def make_db(db):
+    if isinstance(db, couchdb.Database):
+        return db
+    return couchdb.Database(db)
