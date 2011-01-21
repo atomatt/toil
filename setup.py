@@ -18,7 +18,7 @@ setup(name='toil',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          # -*- Extra requirements: -*-
+          "couchdb >= 0.8"
       ],
       entry_points="""
       # -*- Entry points: -*-
