@@ -45,10 +45,14 @@ def _task_docid(name):
 
 class Worker(object):
 
-    def __init__(self, db):
+    max_errors = MAX_ERRORS
+
+    def __init__(self, db, max_errors=None):
         self._db = make_db(db)
         self._registrations = {}
         self.client = Client(self._db)
+        if max_errors is not None:
+            self.max_errors = max_errors
 
     def close(self):
         pass
@@ -85,7 +89,7 @@ class Worker(object):
                                                         unicode(e)),
                                    'detail': traceback.format_exc()})
                     # Pause task if errors has reached maximum.
-                    if len(errors) >= MAX_ERRORS:
+                    if len(errors) >= self.max_errors:
                         task['paused'] = now
                     # Remove claim on task.
                     del task['claimed']
