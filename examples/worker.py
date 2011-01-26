@@ -31,4 +31,3 @@ try:
     worker.run()
 except KeyboardInterrupt:
     pass
-
