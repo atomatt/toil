@@ -104,7 +104,7 @@ def funcesc(s):
 
 DESIGN_DOC = '''
 {
-    "_id": "_design/jobqueue",
+    "_id": "_design/toil",
     "language": "erlang",
     "filters": {
         "task": "%s",

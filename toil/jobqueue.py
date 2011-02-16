@@ -25,7 +25,7 @@ class Client(object):
         reply_to = unicode(uuid.uuid4())
         task = {'_id': _task_docid(name), 'arg': arg, 'reply-to': reply_to}
         self._db.update([task])
-        changes = self._db.changes(feed='longpoll', filter='jobqueue/response',
+        changes = self._db.changes(feed='longpoll', filter='toil/response',
                                   docid=reply_to, include_docs=True)
         response = changes['results'][0]['doc']
         if response:
@@ -65,7 +65,7 @@ class Worker(object):
         # timeout (a heartbeat disables a timeout).
         heartbeat = 15000 if timeout is None else None
         for change in self._db.changes(feed='continuous',
-                                       filter='jobqueue/task',
+                                       filter='toil/task',
                                        name=','.join(self._registrations),
                                        include_docs=True, timeout=timeout,
                                        heartbeat=heartbeat):
