@@ -61,6 +61,46 @@ fun({Doc}, {Req}) ->
 end.
 '''
 
+ACTIVE_TASKS = '''
+fun({Doc}) ->
+    case proplists:get_value(<<"paused">>, Doc) of
+        undefined ->
+            Emit(proplists:get_value(<<"_id">>, Doc),
+                 proplists:get_value(<<"_rev">>, Doc));
+        _ ->
+            nothing
+    end
+end.
+'''
+
+CLAIMED_TASKS = '''
+fun({Doc}) ->
+    case proplists:get_value(<<"claimed">>, Doc) of
+        undefined ->
+            nothing;
+        Claimed ->
+            Emit(proplists:get_value(<<"_id">>, Doc), Claimed)
+    end
+end.
+'''
+
+SUSPENDED_TASKS = '''
+fun({Doc}) ->
+    case proplists:get_value(<<"paused">>, Doc) of
+        undefined ->
+            nothing;
+        _ ->
+            {Error} = lists:last(proplists:get_value(<<"errors">>, Doc)),
+            Emit(proplists:get_value(<<"_id">>, Doc),
+                 proplists:get_value(<<"error">>, Error))
+    end
+end.
+'''
+
+
+def funcesc(s):
+    return s.strip().replace('"', '\\"')
+
 
 DESIGN_DOC = '''
 {
@@ -69,9 +109,15 @@ DESIGN_DOC = '''
     "filters": {
         "task": "%s",
         "response": "%s"
+    },
+    "views": {
+        "active_tasks": {"map": "%s"},
+        "claimed_tasks": {"map": "%s"},
+        "suspended_tasks": {"map": "%s"}
     }
 }
-''' % (TASK_FILTER.replace('"', '\\"'), RESPONSE_FILTER.replace('"', '\\"'))
+''' % (funcesc(TASK_FILTER), funcesc(RESPONSE_FILTER), funcesc(ACTIVE_TASKS),
+       funcesc(CLAIMED_TASKS), funcesc(SUSPENDED_TASKS))
 
 
 def main():
