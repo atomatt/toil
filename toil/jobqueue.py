@@ -22,7 +22,7 @@ class Client(object):
         pass
 
     def fg(self, name, arg=None):
-        reply_to = unicode(uuid.uuid4())
+        reply_to = _reply_docid()
         task = {'_id': _task_docid(name), 'arg': arg, 'reply-to': reply_to}
         self._db.update([task])
         changes = self._db.changes(feed='longpoll', filter='toil/response',
@@ -39,8 +39,12 @@ class Client(object):
 
 
 def _task_docid(name):
-    return 'task~%s~%s~%s' % (name, datetime.utcnow().isoformat(),
+    return 'toil.task~%s~%s~%s' % (name, datetime.utcnow().isoformat(),
                               random.randint(0, 1000))
+
+
+def _reply_docid():
+    return 'toil.reply~%s' % (unicode(uuid.uuid4()),)
 
 
 class Worker(object):

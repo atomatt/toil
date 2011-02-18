@@ -13,7 +13,7 @@ function(doc, req) {
         names[name] = true;
     }
     id = doc._id.split('~');
-    return (id[0] == 'task') && names[id[1]] && !doc._deleted && !doc.claimed && !doc.paused;
+    return (id[0] == 'toil.task') && names[id[1]] && !doc._deleted && !doc.claimed && !doc.paused;
 }
 '''
 
@@ -33,7 +33,7 @@ fun({Doc}, {Req}) ->
         undefined ->
             Id = string:tokens(binary_to_list(couch_util:get_value(<<"_id">>, Doc)), "~"),
             case lists:nth(1, Id) of
-                "task" ->
+                "toil.task" ->
                     case couch_util:get_value(<<"claimed">>, Doc) of
                         undefined ->
                             case couch_util:get_value(<<"paused">>, Doc) of
