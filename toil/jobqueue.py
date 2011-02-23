@@ -85,6 +85,7 @@ class Worker(object):
                 try:
                     result = func(task['arg'])
                 except Exception, e:
+                    log.error(unicode(e))
                     now = datetime.utcnow().isoformat()
                     # Record error in task document.
                     errors = task.setdefault('errors', [])
