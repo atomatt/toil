@@ -4,6 +4,7 @@ import random
 import uuid
 import couchdb
 import traceback
+import types
 
 
 log = logging.getLogger(__name__)
@@ -42,7 +43,13 @@ class Client(object):
             return response['result']
 
     def bg(self, *tasks):
-        tasks = [dict(task) for task in tasks]
+        # Overload so tasks can be passed as a single, positional list or
+        # generator of tasks, i.e. without needing to unpack a list before
+        # calling.
+        if (len(tasks) == 1 and isinstance(tasks[0], (types.ListType,
+                                                      types.GeneratorType))):
+            tasks = tasks[0]
+        tasks = [dict(task) for task in tasks] # Dont change caller's copy.
         self._db.update(tasks)
 
 
