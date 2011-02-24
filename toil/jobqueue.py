@@ -12,6 +12,13 @@ log = logging.getLogger(__name__)
 MAX_ERRORS = 5
 
 
+def task(name, arg=None):
+    """
+    Create a task.
+    """
+    return {'_id': _task_docid(name), 'arg': arg}
+
+
 class Client(object):
 
     def __init__(self, db):
@@ -21,9 +28,10 @@ class Client(object):
     def close(self):
         pass
 
-    def fg(self, name, arg=None):
+    def fg(self, task):
+        task = dict(task) # Don't change caller's copy.
         reply_to = _reply_docid()
-        task = {'_id': _task_docid(name), 'arg': arg, 'reply-to': reply_to}
+        task['reply-to'] = reply_to
         self._db.update([task])
         changes = self._db.changes(feed='longpoll', filter='toil/response',
                                   docid=reply_to, include_docs=True)
@@ -33,9 +41,9 @@ class Client(object):
             self._db.update([response])
             return response['result']
 
-    def bg(self, name, arg=None):
-        task = {'_id': _task_docid(name), 'arg': arg}
-        self._db.update([task])
+    def bg(self, *tasks):
+        tasks = [dict(task) for task in tasks]
+        self._db.update(tasks)
 
 
 def _task_docid(name):
