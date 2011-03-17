@@ -33,13 +33,13 @@ class Client(object):
         task = dict(task) # Don't change caller's copy.
         reply_to = _reply_docid()
         task['reply-to'] = reply_to
-        self._db.update([task])
+        self._db.save(task)
         changes = self._db.changes(feed='longpoll', filter='toil/response',
                                    docid=reply_to, include_docs=True)
         response = changes['results'][0]['doc']
         if response:
             response['_deleted'] = True
-            self._db.update([response])
+            self._db.save(response)
             return response['result']
 
     def bg(self, *tasks):
@@ -93,35 +93,37 @@ class Worker(object):
             task = change['doc']
             log.debug('claim?: %s', task['_id'])
             task['claimed'] = datetime.utcnow().isoformat()
-            result = self._db.update([task])[0]
-            if result[0]:
-                log.debug('claimed: %s', task['_id'])
-                func = self._registrations[task['_id'].split('~')[1]]
-                try:
-                    result = func(task['arg'])
-                except Exception, e:
-                    log.exception(unicode(e))
-                    now = datetime.utcnow().isoformat()
-                    # Record error in task document.
-                    errors = task.setdefault('errors', [])
-                    errors.append({'time': now,
-                                   'error': '%s: %s' % (e.__class__.__name__,
-                                                        unicode(e)),
-                                   'detail': traceback.format_exc()})
-                    # Pause task if errors has reached maximum.
-                    if len(errors) >= self.max_errors:
-                        task['paused'] = now
-                    # Remove claim on task.
-                    del task['claimed']
-                    self._db.update([task])
+            try:
+                self._db.save(task)
+            except couchdb.ResourceConflict:
+                continue
+            log.debug('claimed: %s', task['_id'])
+            func = self._registrations[task['_id'].split('~')[1]]
+            try:
+                result = func(task['arg'])
+            except Exception, e:
+                log.exception(unicode(e))
+                now = datetime.utcnow().isoformat()
+                # Record error in task document.
+                errors = task.setdefault('errors', [])
+                errors.append({'time': now,
+                               'error': '%s: %s' % (e.__class__.__name__,
+                                                    unicode(e)),
+                               'detail': traceback.format_exc()})
+                # Pause task if errors has reached maximum.
+                if len(errors) >= self.max_errors:
+                    task['paused'] = now
+                # Remove claim on task.
+                del task['claimed']
+                self._db.save(task)
+            else:
+                task['_deleted'] = True
+                if 'reply-to' in task:
+                    reply_doc = {'_id': task['reply-to'], 'result': result}
+                    r = self._db.update([task, reply_doc])
+                    log.debug('reply: %s, %s', reply_doc['_id'], r[0][0])
                 else:
-                    task['_deleted'] = True
-                    if 'reply-to' in task:
-                        reply_doc = {'_id': task['reply-to'], 'result': result}
-                        r = self._db.update([task, reply_doc])
-                        log.debug('reply: %s, %s', reply_doc['_id'], r[0][0])
-                    else:
-                        self._db.update([task])
+                    self._db.save(task)
 
 
 def make_db(db):
