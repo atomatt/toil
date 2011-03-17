@@ -35,7 +35,7 @@ class Client(object):
         task['reply-to'] = reply_to
         self._db.update([task])
         changes = self._db.changes(feed='longpoll', filter='toil/response',
-                                  docid=reply_to, include_docs=True)
+                                   docid=reply_to, include_docs=True)
         response = changes['results'][0]['doc']
         if response:
             response['_deleted'] = True
