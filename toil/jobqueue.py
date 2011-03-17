@@ -83,14 +83,19 @@ class Worker(object):
         # Use a 15sec heartbeat to keep the connection alive unless there's a
         # timeout (a heartbeat disables a timeout).
         heartbeat = 15000 if timeout is None else None
-        for change in self._db.changes(feed='continuous',
-                                       filter='toil/task',
-                                       name=','.join(self._registrations),
-                                       include_docs=True, timeout=timeout,
-                                       heartbeat=heartbeat):
-            if 'last_seq' in change:
+        since = None
+        while True:
+            response = self._db.changes(feed='longpoll', since=since, limit=1,
+                                        filter='toil/task',
+                                        name=','.join(self._registrations),
+                                        include_docs=True, timeout=timeout,
+                                        heartbeat=heartbeat)
+            # No results on timeout.
+            if not response['results']:
                 break
-            task = change['doc']
+            result = response['results'][0]
+            since = result['seq']
+            task = result['doc']
             log.debug('claim?: %s', task['_id'])
             task['claimed'] = datetime.utcnow().isoformat()
             try:
