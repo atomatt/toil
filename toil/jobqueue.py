@@ -4,7 +4,6 @@ import random
 import uuid
 import couchdb
 import traceback
-import types
 
 
 log = logging.getLogger(__name__)
