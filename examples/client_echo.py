@@ -1,7 +1,7 @@
 import sys
-from toil import jobqueue
+import toil
 
-client = jobqueue.Client(sys.argv[1])
+client = toil.client(sys.argv[1])
 for i in range(10):
     client.send('echo.bg', [1, 2, 3])
 for i in range(1):

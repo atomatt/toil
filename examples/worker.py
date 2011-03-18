@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 import time
 import sys
-from toil import jobqueue
+import toil
 
 
 def echo(arg):
@@ -22,7 +22,7 @@ tasks = {
 }
 
 logging.basicConfig(level=logging.DEBUG)
-worker = jobqueue.Worker(sys.argv[1])
+worker = toil.worker(sys.argv[1])
 for name in tasks:
     if not sys.argv[2:] or name in sys.argv[2:]:
         print "Registering task:", name

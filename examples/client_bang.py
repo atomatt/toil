@@ -1,6 +1,6 @@
 import sys
-from toil import jobqueue
+import toil
 
-client = jobqueue.Client(sys.argv[1])
+client = toil.client(sys.argv[1])
 client.send('bang')
 client.call('bang')

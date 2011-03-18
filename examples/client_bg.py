@@ -1,7 +1,7 @@
 import sys
-from toil import jobqueue
+import toil
 
-client = jobqueue.Client(sys.argv[1])
+client = toil.client(sys.argv[1])
 # One task.
 client.send('echo.bg', [1, 2, 3])
 # Multiple tasks.
