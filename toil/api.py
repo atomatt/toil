@@ -11,6 +11,10 @@ def worker(uri):
     return _worker_factories[uri.scheme](uri)
 
 
+##
+# CouchDB.
+#
+
 def _couchdb_client_factory(uri):
     from toil import backendcouchdb
     db = _couchdb_database(uri)
@@ -29,5 +33,29 @@ def _couchdb_database(uri):
     return couchdb.Database(urlparse.urlunsplit(uri))
 
 
-_client_factories = {'couchdb': _couchdb_client_factory}
-_worker_factories = {'couchdb': _couchdb_worker_factory}
+##
+# Redis
+#
+
+def _redis_client_factory(uri):
+    from toil import backendredis
+    redis = _redis(uri)
+    return backendredis.Client(redis)
+
+
+def _redis_worker_factory(uri):
+    from toil import backendredis
+    redis = _redis(uri)
+    return backendredis.Worker(redis)
+
+
+def _redis(uri):
+    import redis
+    host, port = uri.netloc.split(':')
+    return redis.Redis(host, int(port))
+
+
+_client_factories = {'couchdb': _couchdb_client_factory,
+                     'redis': _redis_client_factory}
+_worker_factories = {'couchdb': _couchdb_worker_factory,
+                     'redis': _redis_worker_factory}
