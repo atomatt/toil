@@ -13,13 +13,6 @@ log = logging.getLogger(__name__)
 MAX_ERRORS = 5
 
 
-def task(name, arg=None):
-    """
-    Create a task.
-    """
-    return {'_id': _task_docid(name), 'arg': arg}
-
-
 class Client(object):
 
     def __init__(self, db):
@@ -29,10 +22,9 @@ class Client(object):
     def close(self):
         pass
 
-    def fg(self, task):
-        task = dict(task) # Don't change caller's copy.
+    def fg(self, name, arg=None):
         reply_to = _reply_docid()
-        task['reply-to'] = reply_to
+        task = _task(name, arg, reply_to=reply_to)
         self._db.save(task)
         changes = self._db.changes(feed='longpoll', filter='toil/response',
                                    docid=reply_to, include_docs=True)
@@ -42,20 +34,21 @@ class Client(object):
             self._db.save(response)
             return response['result']
 
-    def bg(self, *tasks):
-        # Overload so tasks can be passed as a single, positional list or
-        # generator of tasks, i.e. without needing to unpack a list before
-        # calling.
-        if (len(tasks) == 1 and isinstance(tasks[0], (types.ListType,
-                                                      types.GeneratorType))):
-            tasks = tasks[0]
-        tasks = [dict(task) for task in tasks] # Dont change caller's copy.
+    def bg(self, name, arg=None):
+        self.bgmulti([(name, arg)])
+
+    def bgmulti(self, items):
+        tasks = [_task(name, arg) for (name, arg) in items]
         self._db.update(tasks)
 
 
-def _task_docid(name):
-    return 'toil.task~%s~%s~%s' % (name, datetime.utcnow().isoformat(),
-                              random.randint(0, 1000))
+def _task(name, arg, reply_to=None):
+    task = {'_id': 'toil.task~%s~%s~%s' % (name, datetime.utcnow().isoformat(),
+                                           random.randint(0, 1000)),
+            'arg': arg}
+    if reply_to:
+        task['reply-to'] = reply_to
+    return task
 
 
 def _reply_docid():
