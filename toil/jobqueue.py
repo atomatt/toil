@@ -21,7 +21,7 @@ class Client(object):
     def close(self):
         pass
 
-    def fg(self, name, arg=None):
+    def call(self, name, arg=None):
         reply_to = _reply_docid()
         task = _task(name, arg, reply_to=reply_to)
         self._db.save(task)
@@ -33,10 +33,10 @@ class Client(object):
             self._db.save(response)
             return response['result']
 
-    def bg(self, name, arg=None):
-        self.bgmulti([(name, arg)])
+    def send(self, name, arg=None):
+        self.sendmulti([(name, arg)])
 
-    def bgmulti(self, items):
+    def sendmulti(self, items):
         tasks = [_task(name, arg) for (name, arg) in items]
         self._db.update(tasks)
 
