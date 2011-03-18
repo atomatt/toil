@@ -16,7 +16,6 @@ class Client(object):
 
     def __init__(self, db):
         self._db = make_db(db)
-        self.__since = 0
 
     def close(self):
         pass
