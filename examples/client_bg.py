@@ -7,4 +7,4 @@ client.send('echo.bg', [1, 2, 3])
 # Multiple tasks.
 client.sendmulti([('echo.bg', [1, 2, 3]) for i in xrange(3)])
 # Multiple tasks, as a generator.
-client.send(('echo.bg', [1, 2, 3]) for i in xrange(3))
+client.sendmulti(('echo.bg', [1, 2, 3]) for i in xrange(3))
