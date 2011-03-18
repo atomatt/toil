@@ -7,7 +7,7 @@ import toil
 
 def echo(arg):
     print 'echo', arg, datetime.utcnow().time().isoformat()
-    time.sleep(1)
+    time.sleep(0.1)
     return list(reversed(arg))
 
 
