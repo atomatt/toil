@@ -49,6 +49,7 @@ class Worker(object):
         self._registrations = {}
         if max_errors is not None:
             self.max_errors = max_errors
+        self.client = Client(redis)
 
     def close(self):
         pass
