@@ -113,7 +113,8 @@ class Worker(object):
                 del task['claimed']
                 self._db.save(task)
             else:
-                task['_deleted'] = True
+                task = {'_id': task['_id'], '_rev': task['_rev'],
+                        '_deleted': True}
                 if 'reply-to' in task:
                     reply_doc = {'_id': task['reply-to'], 'result': result}
                     r = self._db.update([task, reply_doc])
