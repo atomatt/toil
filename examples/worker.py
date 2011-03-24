@@ -16,8 +16,7 @@ def bang(arg):
 
 
 tasks = {
-    'echo.bg': echo,
-    'echo.fg': echo,
+    'echo': echo,
     'bang': bang,
 }
 
