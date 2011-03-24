@@ -24,7 +24,10 @@ def _couchdb_client_factory(uri):
 def _couchdb_worker_factory(uri):
     from toil import backendcouchdb
     db = _couchdb_database(uri)
-    return backendcouchdb.Worker(db)
+    args = dict(urlparse.parse_qsl(urlparse.urlsplit(uri.path).query))
+    if 'max_errors' in args:
+        args['max_errors'] = int(args['max_errors'])
+    return backendcouchdb.Worker(db, **args)
 
 
 def _couchdb_database(uri):
