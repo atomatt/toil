@@ -11,11 +11,17 @@ def echo(arg):
     return list(reversed(arg))
 
 
+def ping(arg):
+    print 'ping'
+    return 'pong'
+
+
 def bang(arg):
     oops
 
 
 tasks = {
+    'ping': ping,
     'echo': echo,
     'bang': bang,
 }
