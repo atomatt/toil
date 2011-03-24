@@ -2,13 +2,24 @@ import urlparse
 
 
 def client(uri):
-    uri = urlparse.urlsplit(uri)
-    return _client_factories[uri.scheme](uri)
+    scheme, uri = _splituri(uri)
+    return _client_factories[scheme](uri)
 
 
 def worker(uri):
+    scheme, uri = _splituri(uri)
+    return _worker_factories[scheme](uri)
+
+
+##
+# Helpers.
+#
+
+def _splituri(uri):
+    # A bug in urlsplit means we have to strip the fake scheme off manually.
+    scheme, uri = uri.split(':', 1)
     uri = urlparse.urlsplit(uri)
-    return _worker_factories[uri.scheme](uri)
+    return scheme, uri
 
 
 ##
@@ -24,7 +35,7 @@ def _couchdb_client_factory(uri):
 def _couchdb_worker_factory(uri):
     from toil import backendcouchdb
     db = _couchdb_database(uri)
-    args = dict(urlparse.parse_qsl(urlparse.urlsplit(uri.path).query))
+    args = dict(urlparse.parse_qsl(uri.query))
     if 'max_errors' in args:
         args['max_errors'] = int(args['max_errors'])
     return backendcouchdb.Worker(db, **args)
@@ -32,9 +43,7 @@ def _couchdb_worker_factory(uri):
 
 def _couchdb_database(uri):
     import couchdb
-    # Replace fake 'couchdb' scheme and remove query from path.
-    uri = urlparse.urlunsplit(['http', uri.netloc,
-                               urlparse.urlsplit(uri.path).path, '', ''])
+    uri = urlparse.urlunsplit(['http', uri.netloc, uri.path, '', ''])
     return couchdb.Database(uri)
 
 
