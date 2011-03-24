@@ -7,6 +7,7 @@ TODO:
 
 import logging
 import uuid
+import random
 import simplejson as json
 
 
@@ -58,12 +59,18 @@ class Worker(object):
         self._registrations[name] = callable
 
     def run(self, timeout=None):
-        qnames = ['toil:task:%s' % (name,) for name in self._registrations]
         while True:
+            # Randomise the queues to reduce chance of starvation.
+            qnames = list(self._registrations)
+            random.shuffle(qnames)
+            qnames = ['toil:task:%s' % (name,) for name in qnames]
+            # Take task from a queue.
             qname, task = self._redis.brpop(qnames)
             taskname = qname.split(':')[-1]
             task = json.loads(task)
+            # Call task func.
             result = self._registrations[taskname](task['arg'])
+            # Send reply, if wanted.
             reply_to = task.get('reply_to')
             if reply_to:
                 self._redis.lpush(reply_to, json.dumps({'result': result}))
