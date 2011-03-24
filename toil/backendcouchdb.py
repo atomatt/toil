@@ -76,7 +76,8 @@ class Worker(object):
         heartbeat = 15000 if timeout is None else None
         since = None
         while True:
-            response = self._db.changes(feed='longpoll', since=since, limit=1,
+            # XXX limit=2 to workaround couchdb < 1.0.3 bug.
+            response = self._db.changes(feed='longpoll', since=since, limit=2,
                                         filter='toil/task',
                                         name=','.join(self._registrations),
                                         include_docs=True, timeout=timeout,
