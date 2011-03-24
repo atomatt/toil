@@ -29,8 +29,10 @@ def _couchdb_worker_factory(uri):
 
 def _couchdb_database(uri):
     import couchdb
-    uri = ['http'] + list(uri[1:])
-    return couchdb.Database(urlparse.urlunsplit(uri))
+    # Replace fake 'couchdb' scheme and remove query from path.
+    uri = urlparse.urlunsplit(['http', uri.netloc,
+                               urlparse.urlsplit(uri.path).path, '', ''])
+    return couchdb.Database(uri)
 
 
 ##
