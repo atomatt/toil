@@ -27,8 +27,7 @@ class Client(object):
 
     def call(self, name, arg=None):
         reply_to = 'toil:reply:%s' % (unicode(uuid.uuid4()),)
-        task = {'arg': arg, 'reply_to': reply_to}
-        self._redis.lpush('toil:task:%s' % (name,), json.dumps(task))
+        self._queue(name, {'arg': arg, 'reply_to': reply_to})
         _, response = self._redis.blpop(reply_to)
         return json.loads(response)['result']
 
@@ -37,8 +36,14 @@ class Client(object):
 
     def sendmulti(self, items):
         for name, arg in items:
-            task = {'arg': arg}
-            self._redis.lpush('toil:task:%s' % (name,), json.dumps(task))
+            self._queue(name, {'arg': arg})
+
+    def _queue(self, name, task):
+        task_id = uuid.uuid4().hex
+        pipeline = self._redis.pipeline()
+        pipeline.hset('toil:task', task_id, json.dumps(task))
+        pipeline.lpush('toil:queue:%s' % (name,), task_id)
+        pipeline.execute()
 
 
 class Worker(object):
@@ -63,14 +68,16 @@ class Worker(object):
             # Randomise the queues to reduce chance of starvation.
             qnames = list(self._registrations)
             random.shuffle(qnames)
-            qnames = ['toil:task:%s' % (name,) for name in qnames]
+            qnames = ['toil:queue:%s' % (name,) for name in qnames]
             # Take task from a queue.
-            qname, task = self._redis.brpop(qnames)
+            qname, task_id = self._redis.brpop(qnames)
+            task = json.loads(self._redis.hget('toil:task', task_id))
             taskname = qname.split(':')[-1]
-            task = json.loads(task)
             # Call task func.
             result = self._registrations[taskname](task['arg'])
             # Send reply, if wanted.
             reply_to = task.get('reply_to')
             if reply_to:
                 self._redis.lpush(reply_to, json.dumps({'result': result}))
+            # Delete task
+            self._redis.hdel('toil:task', task_id)
