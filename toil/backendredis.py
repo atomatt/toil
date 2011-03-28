@@ -5,6 +5,7 @@ TODO:
     * Track claimed tasks in case of complete failure.
 """
 
+import copy
 import logging
 import uuid
 import random
@@ -69,7 +70,7 @@ class Worker(object):
             taskname = qname.split(':')[-1]
             task = json.loads(task)
             # Call task func.
-            result = self._registrations[taskname](task['arg'])
+            result = self._registrations[taskname](copy.deepcopy(task['arg']))
             # Send reply, if wanted.
             reply_to = task.get('reply_to')
             if reply_to:
