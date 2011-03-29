@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 import logging
 import random
@@ -97,7 +98,7 @@ class Worker(object):
             log.debug('claimed: %s', task['_id'])
             func = self._registrations[task['_id'].split('~')[1]]
             try:
-                result = func(task['arg'])
+                result = func(copy.deepcopy(task['arg']))
             except Exception, e:
                 log.exception(unicode(e))
                 now = datetime.utcnow().isoformat()
