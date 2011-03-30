@@ -6,10 +6,12 @@ TODO:
 """
 
 import copy
+from datetime import datetime
 import logging
 import uuid
 import random
 import simplejson as json
+import traceback
 
 
 log = logging.getLogger(__name__)
@@ -75,10 +77,29 @@ class Worker(object):
             task = json.loads(self._redis.hget('toil:task', task_id))
             taskname = qname.split(':')[-1]
             # Call task func.
-            result = self._registrations[taskname](copy.deepcopy(task['arg']))
-            # Send reply, if wanted.
-            reply_to = task.get('reply_to')
-            if reply_to:
-                self._redis.lpush(reply_to, json.dumps({'result': result}))
-            # Delete task
-            self._redis.hdel('toil:task', task_id)
+            try:
+                result = self._registrations[taskname](copy.deepcopy(task['arg']))
+            except Exception, e:
+                log.exception(unicode(e))
+                now = datetime.utcnow().isoformat()
+                # Record error in task document.
+                errors = task.setdefault('errors', [])
+                errors.append({'time': now,
+                               'error': '%s: %s' % (e.__class__.__name__,
+                                                    unicode(e)),
+                               'detail': traceback.format_exc()})
+                # Update task record.
+                self._redis.hset('toil:task', task_id, json.dumps(task))
+                # Move to error queue task if errors has reached maximum.
+                # Otherwise, requeue it for another attempt.
+                if len(errors) >= self.max_errors:
+                    self._redis.lpush('toil:error:%s'%taskname, task_id)
+                else:
+                    self._redis.lpush('toil:queue:%s'%taskname, task_id)
+            else:
+                # Send reply, if wanted.
+                reply_to = task.get('reply_to')
+                if reply_to:
+                    self._redis.lpush(reply_to, json.dumps({'result': result}))
+                # Delete task
+                self._redis.hdel('toil:task', task_id)
