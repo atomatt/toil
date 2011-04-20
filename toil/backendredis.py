@@ -66,14 +66,22 @@ class Worker(object):
     def register(self, name, callable):
         self._registrations[name] = callable
 
-    def run(self, timeout=None):
+    def run_forever(self, *a, **k):
+        for _ in self.run_cooperatively(*a, **k):
+            pass
+
+    def run_cooperatively(self):
         while True:
+            yield
             # Randomise the queues to reduce chance of starvation.
             qnames = list(self._registrations)
             random.shuffle(qnames)
             qnames = ['toil:queue:%s' % (name,) for name in qnames]
             # Take task from a queue.
-            qname, task_id = self._redis.brpop(qnames)
+            response = self._redis.brpop(qnames, timeout=1)
+            if response is None:
+                continue
+            qname, task_id = response
             task = json.loads(self._redis.hget('toil:task', task_id))
             taskname = qname.split(':')[-1]
             # Call task func.

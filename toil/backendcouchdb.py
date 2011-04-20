@@ -71,21 +71,23 @@ class Worker(object):
     def register(self, name, callable):
         self._registrations[name] = callable
 
-    def run(self, timeout=None):
-        # Use a 15sec heartbeat to keep the connection alive unless there's a
-        # timeout (a heartbeat disables a timeout).
-        heartbeat = 15000 if timeout is None else None
+    def run_forever(self, *a, **k):
+        for _ in self.run_cooperatively(*a, **k):
+            pass
+
+    def run_cooperatively(self):
         since = None
         while True:
+            # Yield control to caller.
+            yield
             # XXX limit=2 to workaround couchdb < 1.0.3 bug.
             response = self._db.changes(feed='longpoll', since=since, limit=2,
                                         filter='toil/task',
                                         name=','.join(self._registrations),
-                                        include_docs=True, timeout=timeout,
-                                        heartbeat=heartbeat)
-            # No results on timeout.
+                                        include_docs=True, timeout=1000)
+            # Handle timeout.
             if not response['results']:
-                break
+                continue
             result = response['results'][0]
             since = result['seq']
             task = result['doc']
