@@ -6,11 +6,12 @@ TODO:
 """
 
 import copy
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import uuid
 import random
 import simplejson as json
+import time
 import traceback
 
 
@@ -48,6 +49,20 @@ class Client(object):
         pipeline.lpush('toil:queue:%s' % (name,), task_id)
         pipeline.execute()
 
+    def schedule(self, when, name, arg=None):
+        # Convert datetime types to float.
+        if isinstance(when, timedelta):
+            when = datetime.utcnow() + when
+        if isinstance(when, datetime):
+            when = time.mktime(when.utctimetuple())
+        # Add task to scheduler.
+        task = {'name': name, 'arg': arg}
+        task_id = uuid.uuid4().hex
+        pipeline = self._redis.pipeline()
+        pipeline.hset('toil:scheduler:task', task_id, json.dumps(task))
+        pipeline.zadd('toil:scheduler:schedule', task_id, when)
+        pipeline.execute()
+
 
 class Worker(object):
 
@@ -73,41 +88,58 @@ class Worker(object):
     def run_cooperatively(self):
         while True:
             yield
-            # Randomise the queues to reduce chance of starvation.
-            qnames = list(self._registrations)
-            random.shuffle(qnames)
-            qnames = ['toil:queue:%s' % (name,) for name in qnames]
-            # Take task from a queue.
-            response = self._redis.brpop(qnames, timeout=1)
-            if response is None:
-                continue
-            qname, task_id = response
-            task = json.loads(self._redis.hget('toil:task', task_id))
-            taskname = qname.split(':')[-1]
-            # Call task func.
-            try:
-                result = self._registrations[taskname](copy.deepcopy(task['arg']))
-            except Exception, e:
-                log.exception(unicode(e))
-                now = datetime.utcnow().isoformat()
-                # Record error in task document.
-                errors = task.setdefault('errors', [])
-                errors.append({'time': now,
-                               'error': '%s: %s' % (e.__class__.__name__,
-                                                    unicode(e)),
-                               'detail': traceback.format_exc()})
-                # Update task record.
-                self._redis.hset('toil:task', task_id, json.dumps(task))
-                # Move to error queue task if errors has reached maximum.
-                # Otherwise, requeue it for another attempt.
-                if len(errors) >= self.max_errors:
-                    self._redis.lpush('toil:error:%s'%taskname, task_id)
-                else:
-                    self._redis.lpush('toil:queue:%s'%taskname, task_id)
+            self._process_scheduler()
+            self._process_queues(timeout=1)
+
+    def _process_queues(self, timeout):
+        # Randomise the queues to reduce chance of starvation.
+        qnames = list(self._registrations)
+        random.shuffle(qnames)
+        qnames = ['toil:queue:%s' % (name,) for name in qnames]
+        # Take task from a queue.
+        response = self._redis.brpop(qnames, timeout=timeout)
+        if response is None:
+            return
+        qname, task_id = response
+        task = json.loads(self._redis.hget('toil:task', task_id))
+        taskname = qname.split(':')[-1]
+        # Call task func.
+        try:
+            result = self._registrations[taskname](copy.deepcopy(task['arg']))
+        except Exception, e:
+            log.exception(unicode(e))
+            now = datetime.utcnow().isoformat()
+            # Record error in task document.
+            errors = task.setdefault('errors', [])
+            errors.append({'time': now,
+                           'error': '%s: %s' % (e.__class__.__name__,
+                                                unicode(e)),
+                           'detail': traceback.format_exc()})
+            # Update task record.
+            self._redis.hset('toil:task', task_id, json.dumps(task))
+            # Move to error queue if errors has reached maximum.  Otherwise,
+            # requeue it for another attempt.
+            if len(errors) >= self.max_errors:
+                self._redis.lpush('toil:error:%s'%taskname, task_id)
             else:
-                # Send reply, if wanted.
-                reply_to = task.get('reply_to')
-                if reply_to:
-                    self._redis.lpush(reply_to, json.dumps({'result': result}))
-                # Delete task
-                self._redis.hdel('toil:task', task_id)
+                self._redis.lpush('toil:queue:%s'%taskname, task_id)
+        else:
+            # Send reply, if wanted.
+            reply_to = task.get('reply_to')
+            if reply_to:
+                self._redis.lpush(reply_to, json.dumps({'result': result}))
+            # Delete task
+            self._redis.hdel('toil:task', task_id)
+
+    def _process_scheduler(self):
+        # Get a list of tasks that are ready to run.
+        now = time.time()
+        task_ids = self._redis.zrangebyscore('toil:scheduler:schedule', '-inf', now)
+        for task_id in task_ids:
+            # Claim the task by removing it from the list.
+            if not self._redis.zrem('toil:scheduler:schedule', task_id):
+                continue
+            # I win! Move the task from the scheduler to a queue.
+            task = json.loads(self._redis.hget('toil:scheduler:task', task_id))
+            self.client._queue(task['name'], task)
+            self._redis.hdel('toil:scheduler:task', task_id)
