@@ -1,5 +1,7 @@
 import urlparse
 
+from toil import error
+
 
 def client(uri):
     scheme, uri = _splituri(uri)
@@ -66,7 +68,14 @@ def _redis_worker_factory(uri):
 def _redis(uri):
     import redis
     host, port = uri.netloc.split(':')
-    return redis.Redis(host, int(port))
+    path = uri.path.split('/')[1:]
+    if not path or (len(path) == 1 and not path[0]):
+        db = 0
+    elif len(path) == 1 and path[0].isdigit():
+        db = int(path[0])
+    else:
+        raise error.InvalidURIError("'redis' URI path should be a database number, not %r" % (uri.path,))
+    return redis.Redis(host=host, port=int(port), db=db)
 
 
 _client_factories = {'couchdb': _couchdb_client_factory,
