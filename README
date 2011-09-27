@@ -1,0 +1,49 @@
+toil - simple job queue for executing background tasks
+======================================================
+
+toil is a Python library that allows tasks to run in a background process
+either as soon as possible or scheduled for some point in the future.
+
+
+Create a client connection:
+
+    client = toil.client('redis://localhost:6379/0')
+
+
+Send a task to be executed sometime:
+
+    client.send('task1', {'some': 'args'})
+
+
+Execute a task, and wait for the result:
+
+    result = client.call('echo', 'hello')
+
+
+Send lots of tasks to be executed sometime:
+
+    client.sendmulti([('task1', {'some': 'args'}),
+                      ('task1', {'some': 'more args'}),
+                      ...])
+
+
+Schedule a task to be run at some point in the future:
+
+    client.schedule(datetime(2012, 1, 1), 'task1', {'some': 'args'})
+    client.schedule(timedelta(hours=1), 'task1', {'some': 'args'})
+
+
+
+A worker process picks up tasks to run and can handle multiple types of task:
+
+
+    def task1(arg):
+        pass
+
+    def echo(arg):
+        return ''.join(reversed(arg))
+
+    worker = toil.worker('redis://localhost:6379/0')
+    worker.register('task1': task1)
+    worker.register('echo': echo)
+    worker.run_forever()
