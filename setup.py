@@ -17,9 +17,7 @@ setup(name='toil',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
       zip_safe=False,
-      install_requires=[
-          "couchdb >= 0.8"
-      ],
+      install_requires=[],
       entry_points="""
       # -*- Entry points: -*-
       """,
