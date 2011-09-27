@@ -7,7 +7,7 @@ import toil
 
 def echo(arg):
     print 'echo', arg, datetime.utcnow().time().isoformat()
-    time.sleep(0.1)
+    #time.sleep(0.1)
     return list(reversed(arg))
 
 
@@ -33,6 +33,6 @@ for name in tasks:
         print "Registering task:", name
         worker.register(name, tasks[name])
 try:
-    worker.run()
+    worker.run_forever()
 except KeyboardInterrupt:
     pass
