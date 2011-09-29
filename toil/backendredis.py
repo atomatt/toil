@@ -7,6 +7,7 @@ TODO:
 
 import copy
 from datetime import datetime, timedelta
+import itertools
 import logging
 import uuid
 import random
@@ -78,8 +79,8 @@ class Worker(object):
     def close(self):
         pass
 
-    def register(self, name, callable):
-        self._registrations[name] = callable
+    def register(self, name, callable, priority=0):
+        self._registrations[name] = {'func': callable, 'priority': priority}
 
     def run_forever(self, *a, **k):
         for _ in self.run_cooperatively(*a, **k):
@@ -92,9 +93,8 @@ class Worker(object):
             self._process_queues(timeout=1)
 
     def _process_queues(self, timeout):
-        # Randomise the queues to reduce chance of starvation.
-        qnames = list(self._registrations)
-        random.shuffle(qnames)
+        # Randomise queues within priority groups to reduce chance of starvation.
+        qnames = _queue_names_by_priority(self._registrations)
         qnames = ['toil:queue:%s' % (name,) for name in qnames]
         # Take task from a queue.
         response = self._redis.brpop(qnames, timeout=timeout)
@@ -105,7 +105,7 @@ class Worker(object):
         taskname = qname.split(':')[-1]
         # Call task func.
         try:
-            result = self._registrations[taskname](copy.deepcopy(task['arg']))
+            result = self._registrations[taskname]['func'](copy.deepcopy(task['arg']))
         except Exception, e:
             log.exception(unicode(e))
             now = datetime.utcnow().isoformat()
@@ -143,3 +143,18 @@ class Worker(object):
             task = json.loads(self._redis.hget('toil:scheduler:task', task_id))
             self.client._queue(task['name'], task)
             self._redis.hdel('toil:scheduler:task', task_id)
+
+
+def _queue_names_by_priority(registrations):
+    """Yield queue names in the order they should be checked.
+
+    Queue names are ordered primarily by priority (highest first). Then within
+    each priority, the order of names is randomised to reduce the chance of a
+    single queue being starved or execution time.
+    """
+    registrations = sorted(((v['priority'], k) for (k, v) in registrations.iteritems()), reverse=True)
+    for _, names in itertools.groupby(registrations, key=lambda o: o[0]):
+        names = list(names)
+        random.shuffle(names)
+        for name in names:
+            yield name[1]
